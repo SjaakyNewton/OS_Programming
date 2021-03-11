@@ -1,0 +1,44 @@
+#include <iostream>
+#include <vector>
+using namespace std;
+
+void lowerCase(string& naarKlein) {
+for (int i =0; i<naarKlein.length();i++)
+        {
+        naarKlein[i] = tolower(naarKlein[i]);
+        }
+}
+
+
+string caesar(vector<string> lijst, vector<string> zoek){
+for(int vind = 0; vind < zoek.size();vind++){
+        int count = 0;
+        for(int i = 0; i < lijst.size(); i++){
+                string argument = lijst[i];
+                if (argument.find(zoek[vind])!= string::npos){
+                        count ++;
+                }
+        }
+        cout<<"'" << zoek[vind]<<"'" << " staat er zo vaak in: " << count << endl;
+}
+        return "done";
+
+}
+
+
+int main (int argc,char* argv[]){
+string tekst;
+vector<string> zoekend = {};
+vector<string> binnenkomst = {};
+while(getline(cin, tekst)){
+        lowerCase(tekst);
+        binnenkomst.push_back(tekst);
+}
+for (int i = 1; i < argc;i++){
+        string argument = argv[i];
+        lowerCase(argument);
+        zoekend.push_back(argument);
+}
+caesar(binnenkomst, zoekend);
+return 0;
+}
