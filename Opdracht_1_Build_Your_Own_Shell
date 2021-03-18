@@ -1,0 +1,148 @@
+#include "shell.hh"
+#include <time.h>
+#include <fstream>
+
+int main(){
+  std::string input = "";
+  std::string prompt = "";
+  int fd = syscall(SYS_open, "promptFile.txt", O_RDONLY, 0644);
+  char byte[1];
+  while(syscall(SYS_read, fd, byte, 1))
+  {
+  prompt+=byte;
+}
+
+while(true)
+  { std::cout << prompt;                   // Print het prompt
+    std::getline(std::cin, input);         // Lees een regel
+    if (input == "new_file") new_file();   // Kies de functie
+    else if (input == "ls") list();        //   op basis van
+    else if (input == "src") src();        //   de invoer
+    else if (input == "find") find();
+    else if (input == "seek") seek();
+    else if (input == "exit") return 0;
+    else if (input == "quit") return 0;
+    else if (input == "error") return 1;
+
+    if (std::cin.eof()) return 0; } }      // EOF is een exit
+
+void new_file(){
+  //Dit is medemogelijk gemaakt met de hulp van Jasper en Daan.
+  std::string tekst = "";
+  std::string alleTekst = "";
+  std::string fileName = "";
+  while(fileName == ""){
+    std::cout << "File naam?:" << std::endl;
+    getline(std::cin, fileName);
+  }
+  const char* nameFile[] = {fileName.c_str()};
+  int fd = syscall(SYS_creat, nameFile[0], 0644);
+  std::cout << "Voer de tekst in:" << std::endl;
+  const char* letters[] = {NULL};
+  while(getline(std::cin,tekst)){
+    if (tekst == "<EOF>"){
+      break;
+    }
+    else{
+      alleTekst += tekst+'\n';
+    }
+  }
+  letters[0]=alleTekst.c_str();
+  syscall(SYS_write,fd,letters[0],alleTekst.size());
+}
+
+void list(){
+  //std::cout << "Kom hier gewoon!\n";
+  int kindcheck = syscall(SYS_fork);
+  if (kindcheck ==  0){
+    //std::cout<<"Ben het kind jong\n";
+    const char* commando[] = {"/bin/ls","-l","-a",NULL};
+    syscall(SYS_execve, commando[0],commando,NULL);
+    //syscall(SYS_execve(ls, la, NULL));
+  }
+  else{
+    std::cout<<"De volgende bestanden staan erin:\n";
+    syscall(SYS_wait4,kindcheck,NULL,NULL);
+    //IK moet op iets gaan wachten ergens.
+    //while (syscall(SYS_wait4(0,NULL,NULL,NULL))){
+  }
+}
+
+void find(){
+  //Je gebruikt de string om wat te zoeken.
+  //Je gaat opzoek naar bestand namen
+  //Wat je vind wordt uitgeprint met grep.
+
+  //Je roept dus eerst find aan en de uitkomst hiervan stuur je door naar grep
+  
+  //Dit is medemogelijk gemaakt met hulp van Jasper en Laurens
+  std::string invoer = "";
+  std::cout << "Wat zoek jij dwaler?:\n";
+  getline(std::cin,invoer);
+  const char* zoek[] = {"/usr/bin/find",".",NULL};
+  const char* grepie[] = {"/bin/grep",invoer.c_str(),NULL};
+  int pipeAantal[2];
+  syscall(SYS_pipe,&pipeAantal);
+  int kinddood = syscall(SYS_fork);
+  if (kinddood == 0){
+    syscall(SYS_close, pipeAantal[0]);
+    syscall(SYS_dup2,pipeAantal[1],1);
+    syscall(SYS_execve,zoek[0],zoek,NULL);
+  }
+  else{
+    int kinddood2 = syscall(SYS_fork);
+    if(kinddood2==0){
+      syscall(SYS_close, pipeAantal[1]);
+      syscall(SYS_dup2,pipeAantal[0],0);
+      syscall(SYS_execve, grepie[0],grepie,NULL);
+    }
+    else{
+      syscall(SYS_close,pipeAantal[1]);
+      syscall(SYS_close,pipeAantal[0]);
+      syscall(SYS_wait4,kinddood,NULL,NULL,NULL);
+      syscall(SYS_wait4,kinddood2,NULL,NULL,NULL);
+    }
+  }
+}
+
+void seek(){
+  //Het schrijven lukte niet maar toen kwam weer mijn prinse op het witte paard Jasper.
+  const char* seekFile[] = {"seek"};
+  const char* loopFile[] = {"loop"};
+  int seekOpen = syscall(SYS_creat,seekFile[0],0644);
+  int loopOpen = syscall(SYS_creat,loopFile[0],0644);
+  char buffie[1] = {'x'};
+  //5 megabite schrijven naar seek met lseek
+  //snelheid meten van het schrijven
+  time_t beginTimeSeek = time(NULL);
+  syscall(SYS_write,seekOpen,buffie,1);
+  syscall(SYS_lseek,seekOpen,5000000,1);
+  syscall(SYS_write,seekOpen,buffie,1);
+  syscall(SYS_close,seekOpen);
+  time_t endTimeSeek = time(NULL);
+  std::cout<<"seek schrijven in sec: "<<endTimeSeek-beginTimeSeek<<std::endl;
+
+  //5 megabite schrijven naar loop met een for loop
+  //snelheid meten van het schrijven
+  char buffie2[1]= {'\0'};
+  time_t beginTimeLoop = time(NULL);
+  syscall(SYS_write,loopOpen,buffie,1);
+  for(unsigned int i = 0; i<5000000;i++){
+    syscall(SYS_write,loopOpen,buffie2,1);
+  }
+  syscall(SYS_write,loopOpen,buffie,1);
+  syscall(SYS_close,loopOpen);
+  time_t endTimeLoop = time(NULL);
+  std::cout<<"Loop schrijven in sec: "<<endTimeLoop-beginTimeLoop<<std::endl;
+  //vergelijk bestanden met ls -lh
+  //vergelijk bestanden met ls -lS
+  //Na het vergelijken in de Terminal zie ik geen verschil met elkaar.
+  //Het duurt wel lang dat schrijven... Vooral met die loop...
+
+}
+
+void src() // Voorbeeld: Gebruikt SYS_open en SYS_read om de source van de shell (shell.cc) te printen.
+{ int fd = syscall(SYS_open, "shell.cc", O_RDONLY, 0755); // Gebruik de SYS_open call om een bestand te openen.
+  char byte[1];                                           // 0755 zorgt dat het bestand de juiste rechten krijgt (leesbaar is).
+  while(syscall(SYS_read, fd, byte, 1))                   // Blijf SYS_read herhalen tot het bestand geheel gelezen is,
+    std::cout << byte; }                                  //   zet de gelezen byte in "byte" zodat deze geschreven kan worden.
